@@ -1,7 +1,5 @@
 var docx4js = require('docx4js');
 
-var parsedObjects = [];
-
 function isIgnoredType(type) {
   const ignoreTypes = ['proofErr', 'bookmarkStart', 'bookmarkEnd'];
   return ignoreTypes.includes(type);
@@ -180,6 +178,8 @@ function addToCurrentPage(dataObj) {
 
 function parseDoc(doc) {
   var foundFirstHeading = false; // Strunta i allt innan en h1 har hittats
+  const parsedObjects = [];
+  let currentPage = null;
   doc
     .filter((obj) => {
       if (isNewHeading1(obj) || foundFirstHeading) {
@@ -190,33 +190,34 @@ function parseDoc(doc) {
     .forEach((obj) => {
       if (isNewHeading1(obj)) {
         const pageData = createPageData(obj);
-        parsedObjects.push(pageData);
+        currentPage = pageData;
+        parsedObjects.push(currentPage);
       } else if (foundFirstHeading) {
         if (obj.type === 'p') {
-          addToCurrentPage(parseP(obj));
+          currentPage.content.push(parseP(obj));
         } else if (obj.type === 'heading') {
-          addToCurrentPage(createHeading(obj));
+          currentPage.content.push(createHeading(obj));
         } else if (obj.type === 'list') {
-          addToCurrentPage(parseList(obj));
+          currentPage.content.push(parseList(obj));
         } else if (obj.type === 'tbl') {
-          addToCurrentPage(parseTable(obj));
+          currentPage.content.push(parseTable(obj));
         } else {
           console.warn(`Unknown type ${obj.type}`);
         }
       }
   });
+  return parsedObjects;
 }
-
-function print() {
+/*
+function print(parsedObj) {
   parsedObjects.forEach((parsedObj) => {
     console.log("===========================")
     parsedObj.content.forEach((p) => console.log(p));
     console.log("===========================")
   })
 } 
-
-function load(file) {
-  // './testdoc.docx'
+*/
+function load(file, res) {
   docx4js.load(file).then(docx => {
     var data = docx.render(function createElement(type,props,children) {
       return type === isIgnoredType(type) ? null : {type,props,children};
@@ -224,7 +225,8 @@ function load(file) {
     var doc = data.children[0].children
       .filter((child) => !!child)
       .filter((child) => !isIgnoredType(child.type));
-    parseDoc(doc);
+    const parsedObjects = parseDoc(doc);
+    res.send(JSON.stringify(parsedObjects));
   });
 }
 
@@ -246,8 +248,8 @@ app.post('/upload', function(req, res) {
 
   // The name of the input field (i.e. "sampleFile") is used to retrieve the uploaded file
   const sampleFile = req.files.sampleFile;
-  load(sampleFile.tempFilePath);
-  res.sendFile(path.join(__dirname + '/index.html'))
+  load(sampleFile.tempFilePath, res);
+  // res.sendFile(path.join(__dirname + '/index.html'))
 
 });
 
