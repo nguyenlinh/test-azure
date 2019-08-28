@@ -250,7 +250,45 @@ app.post('/upload', function(req, res) {
   const sampleFile = req.files.sampleFile;
   load(sampleFile.tempFilePath, res);
   // res.sendFile(path.join(__dirname + '/index.html'))
+});
 
+app.get('/create', function(req, res) {
+  //toString('base64')
+  var data = JSON.stringify({foo:'this is my data'});
+  var auth = 'Basic ' + Buffer.from('c3lzdGVtOlBWdnlGSFl3TjNjUkYwRm8=').toString();
+
+  var headers = {
+    'Host': 'labb.soleilit.se',
+    'Authorization': auth,
+    'Content-Type': 'application/json',
+    'Content-Length': data.length,
+  };
+ 
+  var https = require('https');
+  const options = {
+    hostname: 'labb.soleilit.se',
+    port: 443,
+    path: '/rest-api/test/create',
+    method: 'POST',
+    headers,
+  };
+  
+  const request = https.request(options, (res) => {
+    console.log('statusCode:', res.statusCode);
+    console.log('headers:', res.headers);
+  
+    request.on('data', (d) => {
+      process.stdout.write(d);
+    });
+  });
+  
+  request.on('error', (e) => {
+    console.error(e);
+  });
+  request.write(data);
+  request.end();
+
+  res.send("DONE");
 });
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname + '/index.html')));
